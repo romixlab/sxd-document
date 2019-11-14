@@ -1100,6 +1100,32 @@ pub fn parse(xml: &str) -> Result<super::Package, Error> {
     Ok(package)
 }
 
+pub fn parse_relaxed<F>(xml: &str, on_warning: F) -> Result<super::Package, Error>
+    where F: Fn(usize, &str)
+{
+    let parser = PullParser::new(xml);
+    let package = super::Package::new();
+
+    {
+        let doc = package.as_document();
+        let mut builder = DomBuilder::new(doc);
+
+        for token in parser {
+            match token {
+                Ok(t) => {
+                    match builder.consume(t) {
+                        Ok(_) => continue,
+                        Err(e) => on_warning(0, &format!("{:?}", e))
+                    };
+                },
+                Err((index, e)) => on_warning(index, &format!("{:?}", e))
+            };
+        }
+    }
+
+    Ok(package)
+}
+
 type DomBuilderResult<T> = Result<T, Span<SpecificError>>;
 
 fn decode_reference<F>(ref_data: Reference, cb: F) -> DomBuilderResult<()>
