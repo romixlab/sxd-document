@@ -739,6 +739,7 @@ impl<'a> Iterator for PullParser<'a> {
         let (r, pt) = match pm.finish(r) {
             peresil::Progress { status: peresil::Status::Success(t), point } => (t, point),
             peresil::Progress { status: peresil::Status::Failure(e), point } => {
+                self.xml = xml.consume_to(Some(1)).point;
                 return Some(Err((point.offset, e)));
             },
         };
@@ -1100,8 +1101,8 @@ pub fn parse(xml: &str) -> Result<super::Package, Error> {
     Ok(package)
 }
 
-pub fn parse_relaxed<F>(xml: &str, on_warning: F) -> Result<super::Package, Error>
-    where F: Fn(usize, &str)
+pub fn parse_relaxed<F>(xml: &str, mut on_warning: F) -> Result<super::Package, Error>
+    where F: FnMut(usize, &str, bool)
 {
     let parser = PullParser::new(xml);
     let package = super::Package::new();
@@ -1115,10 +1116,10 @@ pub fn parse_relaxed<F>(xml: &str, on_warning: F) -> Result<super::Package, Erro
                 Ok(t) => {
                     match builder.consume(t) {
                         Ok(_) => continue,
-                        Err(e) => on_warning(0, &format!("{:?}", e))
+                        Err(e) => on_warning(e.offset, &format!("{:?}", e), false)
                     };
                 },
-                Err((index, e)) => on_warning(index, &format!("{:?}", e))
+                Err((index, e)) => on_warning(index, "", true)
             };
         }
     }
